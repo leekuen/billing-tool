@@ -28,18 +28,29 @@
                     </div>
                 </div>
 
-                <div id="itemList" class="space-y-2">
+                <div class="space-y-2">
+                    <div class="grid grid-cols-12 gap-2 px-2 text-xs font-bold text-gray-400">
+                        <div class="col-span-6">項目名稱</div>
+                        <div class="col-span-3">總價 (未稅)</div>
+                        <div class="col-span-2">比例 %</div>
                     </div>
-                <button onclick="addItem()" class="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded">+ 增加項目</button>
+                    <div id="itemList" class="space-y-2">
+                        </div>
+                </div>
 
-                <button onclick="generate()" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold hover:bg-indigo-700 shadow-lg transition-all">
+                <button type="button" onclick="handleAddItem()" class="w-full py-2 border-2 border-dashed border-gray-200 text-gray-400 rounded-lg hover:bg-gray-50 hover:text-indigo-600 transition">
+                    + 增加自定義項目
+                </button>
+
+                <button type="button" onclick="generate()" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold hover:bg-indigo-700 shadow-lg transition-all">
                     ⚡ 產生請款信件
                 </button>
             </div>
 
             <div class="lg:w-5/12 mt-8 lg:mt-0 flex flex-col">
-                <textarea id="output" class="flex-grow w-full border-2 border-dashed border-indigo-100 p-4 rounded-xl bg-slate-50 text-sm font-mono" placeholder="產出的文字會在這裡..." rows="15"></textarea>
-                <button onclick="copyToClipboard()" id="copyBtn" class="mt-4 bg-emerald-500 text-white py-3 rounded-xl font-bold hover:bg-emerald-600 transition">
+                <label class="block text-xs font-bold text-gray-500 mb-1">產出文字預覽</label>
+                <textarea id="output" class="flex-grow w-full border-2 border-indigo-50 border-solid p-4 rounded-xl bg-slate-50 text-sm font-mono text-gray-700 focus:outline-none min-h-[400px]" placeholder="產出的文字會在這裡..."></textarea>
+                <button type="button" onclick="copyToClipboard()" id="copyBtn" class="mt-4 bg-emerald-500 text-white py-3 rounded-xl font-bold hover:bg-emerald-600 transition">
                     複製文字
                 </button>
             </div>
@@ -47,6 +58,7 @@
     </div>
 
     <script>
+        // 預設四個項目 
         const defaultItems = [
             { name: "群眾集資全包式製作服務費用", price: 300000, ratio: 50 },
             { name: "集資影片製作服務費用", price: 150000, ratio: 50 },
@@ -54,50 +66,74 @@
             { name: "集資廣告投放費用", price: 180000, ratio: 50 }
         ];
 
+        // 建立單列項目的 HTML
         function createItemRow(name = "", price = "", ratio = 50) {
             const div = document.createElement('div');
-            div.className = "item-row grid grid-cols-12 gap-2 items-center bg-gray-50 p-2 rounded-lg border";
+            div.className = "item-row grid grid-cols-12 gap-2 items-center bg-gray-50 p-2 rounded-lg border border-gray-100 hover:border-indigo-200";
             div.innerHTML = `
-                <input type="text" class="col-span-6 border p-1 rounded text-sm name" value="${name}">
-                <input type="number" class="col-span-3 border p-1 rounded text-sm price" value="${price}">
-                <input type="number" class="col-span-2 border p-1 rounded text-sm ratio" value="${ratio}">
-                <button onclick="this.parentElement.remove()" class="col-span-1 text-red-400">✕</button>
+                <input type="text" class="col-span-6 border p-1.5 rounded text-sm name" value="${name}">
+                <input type="number" class="col-span-3 border p-1.5 rounded text-sm price" value="${price}">
+                <input type="number" class="col-span-2 border p-1.5 rounded text-sm ratio" value="${ratio}">
+                <button type="button" onclick="this.parentElement.remove()" class="col-span-1 text-red-300 hover:text-red-500 text-lg">✕</button>
             `;
             return div;
         }
 
+        // 初始化：載入預設項目
         function init() {
             const container = document.getElementById('itemList');
-            defaultItems.forEach(i => container.appendChild(createItemRow(i.name, i.price, i.ratio)));
+            container.innerHTML = ""; // 清空
+            defaultItems.forEach(i => {
+                container.appendChild(createItemRow(i.name, i.price, i.ratio));
+            });
         }
 
+        // 按鈕點擊：新增空白項目
+        function handleAddItem() {
+            const container = document.getElementById('itemList');
+            container.appendChild(createItemRow("", "", 50));
+        }
+
+        // 產生信件邏輯
         function generate() {
             const projName = document.getElementById('projName').value || "＿＿＿＿";
             const dueDateInput = document.getElementById('dueDate').value;
             let dateStr = "＿＿/＿＿（＿）";
+            
             if (dueDateInput) {
                 const d = new Date(dueDateInput);
-                dateStr = `${d.getMonth()+1}／${d.getDate()}（${["日","一","二","三","四","五","六"][d.getDay()]}）`;
+                const week = ["日","一","二","三","四","五","六"];
+                dateStr = `${d.getMonth()+1}／${d.getDate()}（${week[d.getDay()]}）`;
             }
 
             let details = [];
             let totalPreTax = 0;
+
             document.querySelectorAll('.item-row').forEach(row => {
                 const name = row.querySelector('.name').value;
                 const price = parseFloat(row.querySelector('.price').value) || 0;
                 const ratio = parseFloat(row.querySelector('.ratio').value) || 0;
-                const sub = Math.round(price * (ratio / 100));
-                totalPreTax += sub;
-                details.push(`${name} ${price/10000} 萬的 ${ratio}% = ${sub/10000} 萬`);
+                
+                if (name) {
+                    const sub = Math.round(price * (ratio / 100));
+                    totalPreTax += sub;
+                    // 自動判斷萬位數顯示
+                    const priceDisp = price >= 10000 ? (price/10000) + " 萬" : price + " 元";
+                    const subDisp = sub >= 10000 ? (sub/10000) + " 萬" : sub + " 元";
+                    details.push(`${name} ${priceDisp} 的 ${ratio}% = ${subDisp}`);
+                }
             });
 
-            const tax = Math.round(totalPreTax * 0.05);
+            const tax = Math.round(totalPreTax * 0.05); // 營業稅 [cite: 6]
             const total = totalPreTax + tax;
             const fmt = (n) => new Intl.NumberFormat('zh-TW').format(n);
 
             const content = `本次【${projName}】專案採全包服務方式（合約及報價單如附件），來信請款服務費用及廣告預算頭款 NT$ ${fmt(totalPreTax)} 元，含稅為：NT$ ${fmt(total)} 元整\n\n` +
-                details.join('\n') + `\n\n請協助將金額 NT$ ${fmt(total)}（含稅），於 ${dateStr} 前，匯款至以下帳戶：\n\n` +
-                `匯款銀行：國泰世華銀行南京東路分行（分行代碼：0130039）\n戶名：貝殼放大股份有限公司\n帳戶：263035004786\n\n` +
+                details.join('\n') + `\n\n` +
+                `請協助將金額 NT$ ${fmt(total)}（含稅），於 ${dateStr} 前，匯款至以下帳戶：\n\n` +
+                `匯款銀行：國泰世華銀行南京東路分行（分行代碼：0130039）\n` +
+                `戶名：貝殼放大股份有限公司\n` +
+                `帳戶：263035004786\n\n` +
                 `完成匯款後，再請回信告知\n1. 匯款時間\n2. 帳號後五碼\n3. 開立發票之公司名稱、統編`;
 
             document.getElementById('output').value = content;
@@ -105,11 +141,22 @@
 
         function copyToClipboard() {
             const out = document.getElementById("output");
+            if (!out.value) return;
             out.select();
             document.execCommand("copy");
-            alert("已複製到剪貼簿！");
+            
+            const btn = document.getElementById("copyBtn");
+            const oldText = btn.innerText;
+            btn.innerText = "✅ 已複製到剪貼簿";
+            btn.classList.replace("bg-emerald-500", "bg-slate-800");
+            setTimeout(() => {
+                btn.innerText = oldText;
+                btn.classList.replace("bg-slate-800", "bg-emerald-500");
+            }, 2000);
         }
-        init();
+
+        // 頁面載入後啟動
+        window.onload = init;
     </script>
 </body>
 </html>
